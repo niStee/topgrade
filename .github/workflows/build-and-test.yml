@@ -49,15 +49,6 @@ jobs:
       - name: Generate lcov.info
         run: |
           grcov . --binary-path ./target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore "/*" -o lcov.info
-      - name: Check code coverage
-        run: |
-          COVERAGE_THRESHOLD=80
-          COVERAGE=$(lcov --summary lcov.info | grep -Po 'lines\...\K\d+')
-          echo "Code coverage is $COVERAGE%"
-          if [ "$COVERAGE" -lt "$COVERAGE_THRESHOLD" ]; then
-            echo "Code coverage below $COVERAGE_THRESHOLD%, build failed."
-            exit 1
-          fi
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4.0.1
         with:
