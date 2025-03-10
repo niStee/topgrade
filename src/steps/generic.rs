@@ -72,34 +72,47 @@ pub fn run_cargo_update(ctx: &ExecutionContext) -> Result<()> {
         return Err(SkipStep(message).into());
     };
 
-    let mut command = cargo_update.command();
+    let mut cargo_command = ctx.run_type().execute(&cargo_update);
 
     // Display available updates first
-    command
+    cargo_command
         .args(["install-update", "--list"])
         .env_remove(RUST_BACKTRACE)
         .env_remove(RUST_LOG);
 
-    let output = command.check_output().map_err(|e| {
-        debug!("Error listing cargo updates: {}", e);
-        e
-    })?;
+    let output = match cargo_command.output() {
+        Ok(ExecutorOutput::Wet(output)) => {
+            if let Ok(utf8_output) = std::str::from_utf8(&output.stdout) {
+                utf8_output.to_string()
+            } else {
+                String::new()
+            }
+        }
+        Ok(ExecutorOutput::Dry) => String::new(),
+        Err(e) => {
+            debug!("Error listing cargo updates: {}", e);
+            String::new()
+        }
+    };
 
     if !output.trim().is_empty() {
         println!("\n{}", output);
     }
 
     // Then run the update
-    let mut command = cargo_update.command();
-    command
+    let mut cargo_command = ctx.run_type().execute(&cargo_update);
+    cargo_command
         .args(["install-update", "--git", "--all"])
         .env_remove(RUST_BACKTRACE)
         .env_remove(RUST_LOG);
 
-    match command.execute() {
+    // The execute method is not available directly on the command
+    // We should use status_checked or another appropriate method
+    match cargo_command.status_checked() {
         Ok(_) => Ok(()),
         Err(e) => {
-            if e.to_string().contains("No such file or directory") {
+            let error_message = e.to_string();
+            if error_message.contains("No such file or directory") {
                 // This is a known issue with cargo-update
                 // https://github.com/nabijaczleweli/cargo-update/issues/180
                 println!("Warning: cargo-update failed with 'No such file or directory' error.");
@@ -107,6 +120,8 @@ pub fn run_cargo_update(ctx: &ExecutionContext) -> Result<()> {
                 println!("The update may have partially succeeded.");
                 Ok(()) // Return success to continue with other updates
             } else {
+                // Log the error for debugging
+                debug!("Error running cargo-update: {}", error_message);
                 Err(e) // Return other errors normally
             }
         }
