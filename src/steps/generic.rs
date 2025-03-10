@@ -28,6 +28,10 @@ use crate::{
     terminal::print_warning,
 };
 
+// Define constants for environment variables
+const RUST_BACKTRACE: &str = "RUST_BACKTRACE";
+const RUST_LOG: &str = "RUST_LOG";
+
 #[cfg(target_os = "linux")]
 pub fn is_wsl() -> Result<bool> {
     let output = Command::new("uname").arg("-r").output_checked_utf8()?.stdout;
