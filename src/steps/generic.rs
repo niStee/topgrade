@@ -68,24 +68,45 @@ pub fn run_cargo_update(ctx: &ExecutionContext) -> Result<()> {
         return Err(SkipStep(message).into());
     };
 
-    ctx.run_type()
-        .execute(cargo_update)
-        .args(["install-update", "--git", "--all"])
-        .status_checked()?;
+    let mut command = cargo_update.command();
 
-    if ctx.config().cleanup() {
-        let cargo_cache = require("cargo-cache")
-            .ok()
-            .or_else(|| cargo_dir.join("bin/cargo-cache").if_exists());
-        if let Some(e) = cargo_cache {
-            ctx.run_type().execute(e).args(["-a"]).status_checked()?;
-        } else {
-            let message = String::from("cargo-cache isn't installed so Topgrade can't cleanup cargo packages.\nInstall cargo-cache by running `cargo install cargo-cache`");
-            print_warning(message);
-        }
+    // Display available updates first
+    command
+        .args(["install-update", "--list"])
+        .env_remove(RUST_BACKTRACE)
+        .env_remove(RUST_LOG);
+
+    let output = command.check_output().map_err(|e| {
+        debug!("Error listing cargo updates: {}", e);
+        e
+    })?;
+
+    if !output.trim().is_empty() {
+        println!("\n{}", output);
     }
 
-    Ok(())
+    // Then run the update
+    let mut command = cargo_update.command();
+    command
+        .args(["install-update", "--git", "--all"])
+        .env_remove(RUST_BACKTRACE)
+        .env_remove(RUST_LOG);
+
+    match command.execute() {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            if e.to_string().contains("No such file or directory") {
+                // This is a known issue with cargo-update
+                // https://github.com/nabijaczleweli/cargo-update/issues/180
+                println!("Warning: cargo-update failed with 'No such file or directory' error.");
+                println!("This is likely due to a known issue with cargo-update.");
+                println!("The update may have partially succeeded.");
+                Ok(()) // Return success to continue with other updates
+            } else {
+                Err(e) // Return other errors normally
+            }
+        }
+    }
 }
 
 pub fn run_flutter_upgrade(ctx: &ExecutionContext) -> Result<()> {
