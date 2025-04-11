@@ -298,7 +298,21 @@ fn should_use_sudo_yarn(yarn: &Yarn, ctx: &ExecutionContext) -> Result<bool> {
     }
 }
 
+// Helper function to check if node is available
+fn check_node_available() -> Result<()> {
+    match Command::new("node").arg("--version").output_checked_utf8() {
+        Ok(_) => Ok(()),
+        Err(_) => Err(SkipStep(
+            "Node.js is not available. Please ensure Node.js is installed and in your PATH.".to_string(),
+        )
+        .into()),
+    }
+}
+
 pub fn run_npm_upgrade(ctx: &ExecutionContext) -> Result<()> {
+    // Check if node is available first
+    check_node_available()?;
+
     let npm = require("npm").map(|b| NPM::new(b, NPMVariant::Npm))?;
 
     print_separator(t!("Node Package Manager"));
@@ -315,6 +329,9 @@ pub fn run_npm_upgrade(ctx: &ExecutionContext) -> Result<()> {
 }
 
 pub fn run_pnpm_upgrade(ctx: &ExecutionContext) -> Result<()> {
+    // Check if node is available first
+    check_node_available()?;
+
     let pnpm = require("pnpm").map(|b| NPM::new(b, NPMVariant::Pnpm))?;
 
     print_separator(t!("Performant Node Package Manager"));
