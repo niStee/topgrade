@@ -114,6 +114,16 @@ fn run() -> Result<()> {
     }
 
     let config = Config::load(opt)?;
+
+    // Set the locale/language based on configuration (CLI or config file)
+    // Command line option takes precedence, then config file, then system locale
+    if let Some(lang) = config.lang() {
+        rust_i18n::set_locale(lang);
+        debug!("Using configured language: {lang}");
+    } else {
+        rust_i18n::set_locale(&system_locale);
+    }
+
     // Update the logger with the full filter directives.
     update_tracing(&reload_handle, &config.tracing_filter_directives())?;
     set_title(config.set_title());

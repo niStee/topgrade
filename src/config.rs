@@ -456,51 +456,14 @@ pub struct Misc {
     no_self_update: Option<bool>,
 
     log_filters: Option<Vec<String>>,
+
+    /// Set the preferred language (locale) for the application
+    lang: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum)]
-#[clap(rename_all = "snake_case")]
-#[serde(rename_all = "snake_case")]
-pub enum TmuxSessionMode {
-    AttachIfNotInSession,
-    AttachAlways,
-}
-
-pub struct TmuxConfig {
-    pub args: Vec<String>,
-    pub session_mode: TmuxSessionMode,
-}
-
-#[derive(Deserialize, Default, Debug, Merge)]
-#[serde(deny_unknown_fields)]
-pub struct Lensfun {
-    use_sudo: Option<bool>,
-}
-
-#[derive(Deserialize, Default, Debug, Merge)]
-#[serde(deny_unknown_fields)]
-pub struct JuliaConfig {
-    startup_file: Option<bool>,
-}
-
-#[derive(Deserialize, Default, Debug, Merge)]
-#[serde(deny_unknown_fields)]
-pub struct Zigup {
-    target_versions: Option<Vec<String>>,
-    install_dir: Option<String>,
-    path_link: Option<String>,
-    cleanup: Option<bool>,
-}
-
-#[derive(Deserialize, Default, Debug, Merge)]
-#[serde(deny_unknown_fields)]
-pub struct VscodeConfig {
-    profile: Option<String>,
-}
-
-#[derive(Deserialize, Default, Debug, Merge)]
-#[serde(deny_unknown_fields)]
 /// Configuration file
+#[derive(Deserialize, Default, Debug, Merge)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigFile {
     #[merge(strategy = crate::utils::merge_strategies::inner_merge_opt)]
     include: Option<Include>,
@@ -883,6 +846,10 @@ pub struct CommandLineArgs {
     /// Don't update Topgrade
     #[arg(long = "no-self-update")]
     pub no_self_update: bool,
+
+    /// Set the language (locale) for the application
+    #[arg(long = "lang", value_name = "LANGUAGE")]
+    pub lang: Option<String>,
 }
 
 impl CommandLineArgs {
@@ -917,6 +884,10 @@ impl CommandLineArgs {
         }
 
         ret
+    }
+
+    pub fn lang(&self) -> Option<&str> {
+        self.lang.as_deref()
     }
 }
 
@@ -1759,6 +1730,55 @@ impl Config {
             Some(profile.as_str())
         }
     }
+
+    /// Get the user's preferred language
+    pub fn lang(&self) -> Option<&str> {
+        // Command line option takes precedence over config file
+        self.opt
+            .lang()
+            .or_else(|| self.config_file.misc.as_ref().and_then(|misc| misc.lang.as_deref()))
+    }
+}
+
+/// The different ways to interact with tmux sessions
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum TmuxSessionMode {
+    AttachIfNotInSession,
+    AttachAlways,
+}
+
+/// Tmux configuration
+pub struct TmuxConfig {
+    pub args: Vec<String>,
+    pub session_mode: TmuxSessionMode,
+}
+
+#[derive(Deserialize, Default, Debug, Merge)]
+#[serde(deny_unknown_fields)]
+pub struct Lensfun {
+    use_sudo: Option<bool>,
+}
+
+#[derive(Deserialize, Default, Debug, Merge)]
+#[serde(deny_unknown_fields)]
+pub struct JuliaConfig {
+    startup_file: Option<bool>,
+}
+
+#[derive(Deserialize, Default, Debug, Merge)]
+#[serde(deny_unknown_fields)]
+pub struct Zigup {
+    target_versions: Option<Vec<String>>,
+    install_dir: Option<String>,
+    path_link: Option<String>,
+    cleanup: Option<bool>,
+}
+
+#[derive(Deserialize, Default, Debug, Merge)]
+#[serde(deny_unknown_fields)]
+pub struct VscodeConfig {
+    profile: Option<String>,
 }
 
 #[cfg(test)]
@@ -1822,3 +1842,4 @@ mod test {
         assert!(!config.should_execute_remote(Ok("hostname".to_string()), "user@remote_hostname"));
     }
 }
+
