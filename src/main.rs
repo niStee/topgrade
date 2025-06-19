@@ -1,6 +1,7 @@
 #![allow(clippy::cognitive_complexity)]
 
 use std::env;
+use std::env::args;
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
@@ -79,7 +80,7 @@ fn run() -> Result<()> {
     // and `Config::tracing_filter_directives()`.
     let reload_handle = install_tracing(&opt.tracing_filter_directives())?;
 
-    // Get current system locale and set it as the default locale
+    // Get the current system locale and set it as the default locale
     let system_locale = sys_locale::get_locale().unwrap_or("en".to_string());
     rust_i18n::set_locale(&system_locale);
     debug!("Current system locale is {system_locale}");
@@ -122,8 +123,8 @@ fn run() -> Result<()> {
 
     debug!("Version: {}", crate_version!());
     debug!("OS: {}", env!("TARGET"));
-    debug!("{:?}", std::env::args());
-    debug!("Binary path: {:?}", std::env::current_exe());
+    debug!("{:?}", args());
+    debug!("Binary path: {:?}", env::current_exe());
     debug!("self-update Feature Enabled: {:?}", cfg!(feature = "self-update"));
     debug!("Configuration: {:?}", config);
 
@@ -148,10 +149,10 @@ fn run() -> Result<()> {
 
     // If
     //
-    // 1. the breaking changes notification shouldnot be skipped
-    // 2. this is the first execution of a major release
+    // 1. The breaking changes notification shouldnot be skipped
+    // 2. This is the first execution of a major release
     //
-    // inform user of breaking changes
+    //  to inform user of breaking changes
     if !should_skip() && first_run_of_major_release()? {
         print_breaking_changes();
 
@@ -163,8 +164,8 @@ fn run() -> Result<()> {
     }
 
     // Self-Update step, this will execute only if:
-    // 1. the `self-update` feature is enabled
-    // 2. it is not disabled from configuration (env var/CLI opt/file)
+    // 1. The `self-update` feature is enabled
+    // 2. It is not disabled from configuration (env var/CLI opt/file)
     #[cfg(feature = "self-update")]
     {
         let should_self_update = env::var("TOPGRADE_NO_SELF_UPGRADE").is_err() && !config.no_self_update();
@@ -176,7 +177,7 @@ fn run() -> Result<()> {
 
     #[cfg(windows)]
     let _self_rename = if config.self_rename() {
-        Some(crate::self_renamer::SelfRenamer::create()?)
+        Some(self_renamer::SelfRenamer::create()?)
     } else {
         None
     };
@@ -216,7 +217,7 @@ fn run() -> Result<()> {
 
     #[cfg(target_os = "linux")]
     {
-        // NOTE: Due to breaking `nu` updates, `packer.nu` needs to be updated before `nu` get updated
+        // NOTE: Due to breaking `nu` updates, `packer.nu` needs to be updated before `nu` gets updated
         // by other package managers.
         runner.execute(Step::Shell, "packer.nu", || linux::run_packer_nu(&ctx))?;
 
