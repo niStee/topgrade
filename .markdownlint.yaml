@@ -1,0 +1,43 @@
+# Minimal markdownlint configuration aligned with repo conventions# Minimal markdownlint configuration aligned with repo conventions
+
+# Keep rules minimal; allow long lines in tables and code blocks by default.
+
+# Disable rules that often cause churn without clear value
+
+MD013: false  # line length# Disable rules that often cause churn without clear value
+
+MD033: false  # inline HTML allowed in docs if neededMD013: false  # line length
+
+MD041: false  # first line heading not required for small docsMD033: false  # inline HTML allowed in docs if needed
+
+MD041: false  # first line heading not required for small docs
+
+# Consistent unordered list markers
+
+MD004:# Enable consistent unordered list markers
+
+  style: dashMD004:
+
+  style: dash
+
+# Consistent heading style
+
+MD003:# Set consistent heading style
+
+  style: atxMD003:
+
+  style: atx
+
+# Require fenced code blocks to specify language where feasible
+
+MD040: true# Require fenced code blocks to specify language where feasible
+
+MD040: true
+
+# Prefer blank line before headings and after lists
+
+MD022: true# Prefer blank line before headings and after lists
+
+MD032: trueMD022: true
+
+MD032: true
