@@ -124,7 +124,7 @@ jobs:
 
 
       - name: Release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
         with:
           tag_name: ${{ steps.determine_tag_name.outputs.tag_name }}
           files: assets/*
@@ -241,7 +241,7 @@ jobs:
 
 
       - name: Release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
         with:
           tag_name: ${{ steps.determine_tag_name.outputs.tag_name }}
           files: assets/*
