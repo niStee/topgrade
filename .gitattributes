@@ -1,0 +1,2 @@
+# Exclude from PR exports (but keep in working directory and all branches)
+.github/copilot-instructions.md export-ignore
