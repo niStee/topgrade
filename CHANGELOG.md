@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [16.1.3](https://github.com/niStee/topgrade/compare/v16.1.2...v16.1.3) - 2025-11-01
+
+### Other
+
+- add copilot instructions
+- *(release)* Fix dispatch error in create_release_assets.yml ([#1406](https://github.com/niStee/topgrade/pull/1406))
+
 ## [16.1.2](https://github.com/topgrade-rs/topgrade/compare/v16.1.1...v16.1.2) - 2025-11-01
 
 ### Fixed
