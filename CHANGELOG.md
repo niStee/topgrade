@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [16.2.0](https://github.com/niStee/topgrade/compare/v16.1.2...v16.2.0) - 2025-11-07
+
+### Added
+
+- *(rustup)* add rustup.channels config ([#1206](https://github.com/niStee/topgrade/pull/1206))
+- *(os)* add AOSC OS support ([#1424](https://github.com/niStee/topgrade/pull/1424))
+- add damp run type ([#1217](https://github.com/niStee/topgrade/pull/1217))
+
+### Fixed
+
+- *(vim)* change nvimrc base_dir for windows ([#1433](https://github.com/niStee/topgrade/pull/1433))
+- *(guix)* fix overcomplicated Guix step ([#1290](https://github.com/niStee/topgrade/pull/1290))
+- *(gem)* fix incorrectly placed debug message in `gem` step ([#1212](https://github.com/niStee/topgrade/pull/1212))
+- *(conda)* replace deprecated `auto_activate_base` ([#1158](https://github.com/niStee/topgrade/pull/1158))
+- *(containers)* fix panic in `containers` step ([#1150](https://github.com/niStee/topgrade/pull/1150))
+- *(jetbrains-toolbox)* fix step not dry running ([#1253](https://github.com/niStee/topgrade/pull/1253))
+
+### Other
+
+- Improve installation section ([#1442](https://github.com/niStee/topgrade/pull/1442))
+- *(deps)* Update jetbrains-toolbox-updater ([#1438](https://github.com/niStee/topgrade/pull/1438))
+- remove template expansion in code contexts ([#1434](https://github.com/niStee/topgrade/pull/1434))
+- *(deps)* bump github/codeql-action from 4.31.0 to 4.31.2 ([#1427](https://github.com/niStee/topgrade/pull/1427))
+- don't persist credentials in actions/checkout ([#1422](https://github.com/niStee/topgrade/pull/1422))
+- Improve CONTRIBUTING.md ([#1420](https://github.com/niStee/topgrade/pull/1420))
+- Update SECURITY.md ([#1421](https://github.com/niStee/topgrade/pull/1421))
+- Enforce conventional commits in PR titles ([#1418](https://github.com/niStee/topgrade/pull/1418))
+- Improve contributing section
+- Remove roadmap
+- Reformat README.md
+- Update installation methods
+- *(release)* Fix dispatch error in create_release_assets.yml ([#1406](https://github.com/niStee/topgrade/pull/1406))
+
 ## [16.1.2](https://github.com/topgrade-rs/topgrade/compare/v16.1.1...v16.1.2) - 2025-11-01
 
 ### Fixed
