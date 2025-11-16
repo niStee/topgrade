@@ -61,50 +61,38 @@ See `config.example.toml` for an example configuration file.
 
 ### Windows SDIO (Optional Driver Updates)
 
-Topgrade can optionally invoke **Snappy Driver Installer Origin (SDIO)** to analyze and install drivers.
+Topgrade can optionally invoke **Snappy Driver Installer Origin (SDIO)** to check for and install driver updates.
 
-**Important:** Like firmware updates on Linux (`fwupdmgr`), driver installation is system-specific and potentially
-risky. Topgrade orchestrates SDIO.exe execution but YOU control what gets installed via your own script.
+**Like firmware updates on Linux** (`fwupdmgr`), SDIO handles system drivers. Topgrade provides safe embedded defaults so
+it "just works" without requiring custom scripts.
 
-**Setup:**
+**Quick Start:**
 
-1. Download SDIO: <https://www.snappy-driver-installer.org/>
-2. Create your own SDIO text script (see SDIO documentation and included examples)
-3. **Test in safe mode first:** Set `enableinstall off` in your script and verify behavior
-4. Configure Topgrade (see `config.example.toml` for details)
-5. Run with explicit confirmation: `topgrade --yes sdio`
+1. Download SDIO: <https://www.snappy-driver-installer.org/> (add to PATH or configure `sdio_binary`)
+2. Run: `topgrade --yes sdio` - checks for driver updates (does **not** install by default)
+3. To actually install: set `sdio_upgrade = true` in `config.toml`
 
-**How it works:**
+**Configuration (in `config.toml`):**
 
-Topgrade runs SDIO twice with your script:
+```toml
+[windows]
+sdio_upgrade = false  # Default: check only (safe)
+                      # Set to true to install driver updates
 
-- **Analyze phase:** `SDIO.exe -script:yourscript.txt analyze` - checks for updates
-- **Install phase:** `SDIO.exe -script:yourscript.txt install` - applies updates
-
-Your script receives the phase as parameter `%1` and should branch accordingly using `goto %1` with `:analyze` and
-`:install` labels.
-
-**Minimal script structure:**
-
-```text
-goto %1
-:analyze
-logging on
-verbose 384
-enableinstall off
-init
-select missing better
-end
-:install
-enableinstall on         # Set to 'off' for testing
-init  
-select missing better
-restorepoint "Driver updates"
-install
-end
+# Optional overrides:
+sdio_binary = "C:\\tools\\SDIO\\SDIO_R580.exe"  # If not in PATH
+sdio_script = "C:\\path\\to\\custom-script.txt"  # Override embedded default
 ```
 
-See `config.example.toml` for full configuration options and SDIO's official documentation for advanced scripting.
+**Embedded script behavior:**
+
+- Uses SDIO's `select missing better` (conservative: only missing drivers or better versions)
+- Creates Windows restore point before installing
+- Enables logging (check SDIO's log file for details)
+- Confirmation always required (`--yes sdio` or global `--yes`)
+
+**Advanced:** Power users can override the embedded script by providing `sdio_script` path. See SDIO's official
+documentation for scripting format.
 
 ## Migration and Breaking Changes
 

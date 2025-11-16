@@ -72,22 +72,74 @@ pub fn run_scoop(ctx: &ExecutionContext) -> Result<()> {
     Ok(())
 }
 
+// Embedded default SDIO script for checking driver updates (safe, no installs)
+const SDIO_CHECK_SCRIPT: &str = r"logging on
+verbose 384
+enableinstall off
+init
+select missing better
+end
+";
+
+// Embedded default SDIO script for installing driver updates
+const SDIO_INSTALL_SCRIPT: &str = r"logging on
+verbose 384
+enableinstall on
+init
+select missing better
+restorepoint Topgrade driver updates
+install
+end
+";
+
+/// Find SDIO binary in PATH or use configured path
+fn find_sdio_binary(config_binary: Option<&str>) -> Result<std::path::PathBuf> {
+    if let Some(binary_path) = config_binary {
+        return Ok(std::path::PathBuf::from(binary_path));
+    }
+
+    // Try exact "SDIO" first
+    if let Ok(path) = require("SDIO") {
+        return Ok(path);
+    }
+
+    // Fallback: scan PATH for SDIO.exe or SDIO_R*.exe (prefer exact, then latest version)
+    let mut exact_match: Option<std::path::PathBuf> = None;
+    let mut versioned_candidates: Vec<std::path::PathBuf> = Vec::new();
+
+    if let Some(path_os) = std::env::var_os("PATH") {
+        for p in std::env::split_paths(&path_os) {
+            if let Ok(rd) = std::fs::read_dir(&p) {
+                for entry in rd.flatten() {
+                    let path = entry.path();
+                    if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                        let name_lower = name.to_ascii_lowercase();
+                        if name_lower == "sdio.exe" {
+                            exact_match = Some(path.clone());
+                        } else if name_lower.starts_with("sdio_r") && name_lower.ends_with(".exe") {
+                            versioned_candidates.push(path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(path) = exact_match {
+        Ok(path)
+    } else if !versioned_candidates.is_empty() {
+        versioned_candidates.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
+        Ok(versioned_candidates.into_iter().next().unwrap())
+    } else {
+        let msg = format!(
+            "{}; set [windows].sdio_binary to the full SDIO.exe path",
+            t!("Cannot find {binary_name} in PATH", binary_name = "SDIO.exe")
+        );
+        Err(SkipStep(msg).into())
+    }
+}
+
 pub fn run_sdio(ctx: &ExecutionContext) -> Result<()> {
-    // Get script path from config (required)
-    let script_path = ctx
-        .config()
-        .sdio_script()
-        .ok_or_else(|| SkipStep(t!("SDIO script path not configured").to_string()))?;
-
-    // Validate script exists and is a file
-    let script_path_buf = std::path::PathBuf::from(script_path);
-    if !script_path_buf.exists() {
-        return Err(SkipStep(format!("SDIO script not found: {}", script_path)).into());
-    }
-    if !script_path_buf.is_file() {
-        return Err(SkipStep(format!("SDIO script path is not a file: {}", script_path)).into());
-    }
-
     // Check if user confirmed this step
     if !ctx.config().yes(Step::Sdio) {
         return Err(SkipStep(t!("SDIO requires confirmation to run").to_string()).into());
@@ -95,77 +147,69 @@ pub fn run_sdio(ctx: &ExecutionContext) -> Result<()> {
 
     // Warn if running with elevated privileges
     if is_elevated() {
-        print_warning("SDIO running with elevated privileges - ensure your script is from a trusted source");
+        print_warning("SDIO running with elevated privileges - driver installation may require admin rights");
     }
 
     print_separator("SDIO");
 
-    // Get SDIO binary (from config or PATH); fallback: scan PATH for SDIO*.exe
-    let sdio = if let Some(binary_path) = ctx.config().sdio_binary() {
-        std::path::PathBuf::from(binary_path)
-    } else {
-        match require("SDIO") {
-            Ok(path) => path,
-            Err(_) => {
-                // Fallback: look for SDIO.exe or SDIO_R*.exe in PATH (prefer exact match, then latest version)
-                let mut exact_match: Option<std::path::PathBuf> = None;
-                let mut versioned_candidates: Vec<std::path::PathBuf> = Vec::new();
+    // Get SDIO binary
+    let sdio = find_sdio_binary(ctx.config().sdio_binary())?;
 
-                if let Some(path_os) = std::env::var_os("PATH") {
-                    for p in std::env::split_paths(&path_os) {
-                        if let Ok(rd) = std::fs::read_dir(&p) {
-                            for entry in rd.flatten() {
-                                let path = entry.path();
-                                if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                                    let name_lower = name.to_ascii_lowercase();
-                                    if name_lower == "sdio.exe" {
-                                        exact_match = Some(path.clone());
-                                    } else if name_lower.starts_with("sdio_r") && name_lower.ends_with(".exe") {
-                                        // Accept versioned SDIO_R*.exe (official naming pattern)
-                                        versioned_candidates.push(path);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Prefer exact match, then latest version (reverse sort to get highest version)
-                if let Some(path) = exact_match {
-                    path
-                } else if !versioned_candidates.is_empty() {
-                    versioned_candidates.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
-                    versioned_candidates.into_iter().next().unwrap()
-                } else {
-                    let msg = format!(
-                        "{}; set [windows].sdio_binary to the full SDIO.exe path",
-                        t!(
-                            "Cannot find {binary_name} in PATH",
-                            binary_name = format!("{:?}", "SDIO*.exe")
-                        )
-                    );
-                    return Err(SkipStep(msg).into());
-                }
-            }
+    // Determine script to use: custom override or embedded default
+    let (script_path, cleanup_script) = if let Some(custom_script) = ctx.config().sdio_script() {
+        // User provided custom script - validate it exists and is a file
+        let script_path_buf = std::path::PathBuf::from(custom_script);
+        if !script_path_buf.exists() {
+            return Err(SkipStep(format!("SDIO script not found: {}", custom_script)).into());
         }
+        if !script_path_buf.is_file() {
+            return Err(SkipStep(format!("SDIO script path is not a file: {}", custom_script)).into());
+        }
+        (script_path_buf, false) // Don't cleanup user's script
+    } else {
+        // Use embedded default script based on upgrade mode
+        let script_content = if ctx.config().sdio_upgrade() {
+            SDIO_INSTALL_SCRIPT
+        } else {
+            SDIO_CHECK_SCRIPT
+        };
+
+        // Write to temp file
+        let temp_dir = std::env::temp_dir();
+        let script_path = temp_dir.join(format!("topgrade_sdio_{}.txt", std::process::id()));
+
+        std::fs::write(&script_path, script_content.as_bytes())
+            .map_err(|e| SkipStep(format!("Failed to write temp SDIO script: {}", e)))?;
+
+        (script_path, true) // Cleanup our temp file
     };
 
-    // Phase 1: Analyze - check for driver updates
-    println!("{}", t!("Analyzing system for driver updates..."));
-    ctx.execute(&sdio)
-        .arg(format!("-script:{}", script_path))
-        .arg("analyze")
-        .status_checked()?;
+    // Execute SDIO with the script (ensure cleanup happens even if execution fails)
+    let result = (|| -> Result<()> {
+        if ctx.config().sdio_upgrade() {
+            println!("{}", t!("Checking and installing driver updates..."));
+        } else {
+            println!("{}", t!("Checking for driver updates..."));
+        }
 
-    // Phase 2: Install - apply driver updates
-    println!("{}", t!("Installing driver updates..."));
-    ctx.execute(&sdio)
-        .arg(format!("-script:{}", script_path))
-        .arg("install")
-        .status_checked()?;
+        ctx.execute(&sdio)
+            .arg(format!("-script:{}", script_path.display()))
+            .status_checked()?;
 
-    println!("{}", t!("SDIO driver updates completed"));
-    Ok(())
+        if ctx.config().sdio_upgrade() {
+            println!("{}", t!("SDIO driver updates completed"));
+        } else {
+            println!("{}", t!("SDIO driver check completed"));
+        }
+        Ok(())
+    })();
+
+    // Cleanup temp file if we created one
+    if cleanup_script {
+        let _ = std::fs::remove_file(&script_path);
+    }
+
+    result
 }
 
 pub fn update_wsl(ctx: &ExecutionContext) -> Result<()> {

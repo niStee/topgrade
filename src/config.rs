@@ -112,6 +112,7 @@ pub struct Windows {
     wsl_update_use_web_download: Option<bool>,
     winget_silent_install: Option<bool>,
     winget_use_sudo: Option<bool>,
+    sdio_upgrade: Option<bool>,
     sdio_binary: Option<String>,
     sdio_script: Option<String>,
 }
@@ -1228,7 +1229,16 @@ impl Config {
         self.config_file.windows.as_ref().and_then(|w| w.sdio_binary.as_deref())
     }
 
-    /// Get the SDIO script path (required for SDIO step to run)
+    /// Whether SDIO should install driver updates (default: false, check only)
+    pub fn sdio_upgrade(&self) -> bool {
+        self.config_file
+            .windows
+            .as_ref()
+            .and_then(|w| w.sdio_upgrade)
+            .unwrap_or(false)
+    }
+
+    /// Get the SDIO script path (optional override of embedded default)
     pub fn sdio_script(&self) -> Option<&str> {
         self.config_file.windows.as_ref().and_then(|w| w.sdio_script.as_deref())
     }
@@ -1873,6 +1883,12 @@ mod test {
         cfg.opt = CommandLineArgs::parse_from(["topgrade", "--yes", "sdio"]);
         assert!(cfg.yes(Step::Sdio));
         assert!(!cfg.yes(Step::Scoop));
+    }
+
+    #[test]
+    fn test_sdio_upgrade_default_false() {
+        let cfg = config();
+        assert!(!cfg.sdio_upgrade());
     }
 
     #[test]
