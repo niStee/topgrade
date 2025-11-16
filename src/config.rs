@@ -112,6 +112,8 @@ pub struct Windows {
     wsl_update_use_web_download: Option<bool>,
     winget_silent_install: Option<bool>,
     winget_use_sudo: Option<bool>,
+    sdio_binary: Option<String>,
+    sdio_script: Option<String>,
 }
 
 #[derive(Deserialize, Default, Debug, Merge)]
@@ -1221,6 +1223,16 @@ impl Config {
             .unwrap_or(false)
     }
 
+    /// Get the SDIO binary path (optional, defaults to "SDIO" in PATH)
+    pub fn sdio_binary(&self) -> Option<&str> {
+        self.config_file.windows.as_ref().and_then(|w| w.sdio_binary.as_deref())
+    }
+
+    /// Get the SDIO script path (required for SDIO step to run)
+    pub fn sdio_script(&self) -> Option<&str> {
+        self.config_file.windows.as_ref().and_then(|w| w.sdio_script.as_deref())
+    }
+
     /// Whether Brew cask should be greedy
     pub fn brew_cask_greedy(&self) -> bool {
         self.config_file
@@ -1839,6 +1851,28 @@ mod test {
             config_file: ConfigFile::default(),
             allowed_steps: Vec::new(),
         }
+    }
+
+    #[test]
+    fn test_yes_sdio_default_false() {
+        let cfg = config();
+        assert!(!cfg.yes(Step::Sdio));
+    }
+
+    #[test]
+    fn test_yes_sdio_global_yes() {
+        let mut cfg = config();
+        cfg.opt = CommandLineArgs::parse_from(["topgrade", "--yes"]);
+        assert!(cfg.yes(Step::Sdio));
+        assert!(cfg.yes(Step::Scoop));
+    }
+
+    #[test]
+    fn test_yes_sdio_selective() {
+        let mut cfg = config();
+        cfg.opt = CommandLineArgs::parse_from(["topgrade", "--yes", "sdio"]);
+        assert!(cfg.yes(Step::Sdio));
+        assert!(!cfg.yes(Step::Scoop));
     }
 
     #[test]

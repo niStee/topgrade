@@ -1034,9 +1034,9 @@ _version: 2
   en: 'File "/etc/os-release" does not exist or is empty'
   lt: 'Failas "/etc/os-release" neegzistuoja arba yra tuščias'
   es: 'El archivo "/etc/os-release" no existe o está vacío'
-  fr: "Le fichier \"/etc/os-release\" n'existe pas ou est vide"
+  fr: 'Le fichier "/etc/os-release" n''existe pas ou est vide'
   zh_CN: "文件 “/etc/os-release” 不存在或为空"
-  zh_TW: '「/etc/os-release」不存在或為空'
+  zh_TW: "「/etc/os-release」不存在或為空"
   de: 'Datei "/etc/os-release" existiert nicht oder ist leer'
 "Failed getting the system package manager":
   en: "Failed getting the system package manager"
@@ -1330,6 +1330,16 @@ _version: 2
   zh_CN: "成功，Microsoft Store 应用正在后台更新"
   zh_TW: "成功，Microsoft Store 應用程式正在後台更新"
   de: "Erfolg, Microsoft Store-Apps werden im Hintergrund aktualisiert"
+"SDIO script path not configured":
+  en: "SDIO script path not configured"
+"SDIO requires confirmation to run":
+  en: "SDIO requires confirmation to run (invoke with --yes Sdio)"
+"Analyzing system for driver updates...":
+  en: "Analyzing system for driver updates..."
+"Installing driver updates...":
+  en: "Installing driver updates..."
+"SDIO driver updates completed":
+  en: "SDIO driver updates completed"
 "No JetBrains Toolbox installation found":
   en: "No JetBrains Toolbox installation found"
   lt: "Nerasta JetBrains Toolbox įdiegimo"

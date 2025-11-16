@@ -285,6 +285,43 @@
 # (default: false)
 # winget_use_sudo = true
 
+# --- SDIO (Snappy Driver Installer Origin) driver updates (optional) ---
+# To enable the SDIO step you must:
+# 1. Provide a text script file via `sdio_script` (required)
+# 2. Optionally set `sdio_binary` if SDIO.exe is not in your PATH
+# 3. Invoke Topgrade with confirmation: `topgrade --yes Sdio` (or global `--yes`)
+#
+# Download SDIO: https://www.snappy-driver-installer.org/
+#
+# The script is a plain text file consumed with `-script:<file>`. Topgrade runs it twice:
+#   Phase 1: `SDIO.exe -script:script.txt analyze`
+#   Phase 2: `SDIO.exe -script:script.txt install`
+# The parameter (`analyze` / `install`) becomes `%1` inside the script; use an initial `goto %1`
+# to branch into the appropriate label. A minimal example:
+#
+#   goto %1
+#   :analyze
+#   echo Analyzing drivers...
+#   verbose 384
+#   logging on
+#   enableinstall off
+#   init
+#   select missing better
+#   end
+#   :install
+#   echo Installing drivers...
+#   enableinstall on
+#   init
+#   select missing better
+#   restorepoint "Driver updates"
+#   install
+#   end
+#
+# Optional explicit path to SDIO binary (if not in PATH):
+# sdio_binary = "C:\\SDIO\\SDIO_R580.exe"
+# Required script path to enable the step:
+# sdio_script = "C:\\SDIO\\scripts\\install.txt"
+
 
 [chezmoi]
 # Exclude encrypted files from update

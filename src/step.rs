@@ -137,6 +137,7 @@ pub enum Step {
     Rustup,
     Rye,
     Scoop,
+    Sdio,
     Sdkman,
     SelfUpdate,
     Sheldon,
@@ -538,6 +539,11 @@ impl Step {
                 #[cfg(windows)]
                 runner.execute(*self, "Scoop", || windows::run_scoop(ctx))?
             }
+            Sdio =>
+            {
+                #[cfg(windows)]
+                runner.execute(*self, "SDIO", || windows::run_sdio(ctx))?
+            }
             Sdkman =>
             {
                 #[cfg(unix)]
@@ -715,7 +721,7 @@ pub(crate) fn default_steps() -> Vec<Step> {
     steps.push(Remotes);
 
     #[cfg(windows)]
-    steps.extend_from_slice(&[Wsl, WslUpdate, Chocolatey, Scoop, Winget, System, MicrosoftStore]);
+    steps.extend_from_slice(&[Wsl, WslUpdate, Chocolatey, Scoop, Winget, Sdio, System, MicrosoftStore]);
 
     #[cfg(target_os = "macos")]
     steps.extend_from_slice(&[BrewFormula, BrewCask, Macports, Xcodes, Sparkle, Mas, System]);

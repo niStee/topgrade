@@ -59,6 +59,46 @@ Just run `topgrade`.
 
 See `config.example.toml` for an example configuration file.
 
+### Windows SDIO (Optional Driver Updates)
+
+Topgrade can optionally invoke **Snappy Driver Installer Origin (SDIO)** to analyze and update drivers.
+
+To enable the SDIO step:
+
+- Download SDIO: <https://www.snappy-driver-installer.org/>
+- Create a text script (SDIO's own scripting format) and set `sdio_script` under `[windows]` in your config.
+- (Optional) Set `sdio_binary` if `SDIO.exe` is not in your PATH.
+- Run Topgrade with confirmation: `topgrade --yes Sdio` (or global `--yes`).
+
+Invocation model:
+Topgrade runs SDIO twice:
+
+1. Analyze phase: `SDIO.exe -script:script.txt analyze`
+2. Install phase: `SDIO.exe -script:script.txt install`
+
+Inside the script `%1` is the first argument; start the file with `goto %1` and define `:analyze` and `:install` labels.
+Minimal example:
+
+```text
+goto %1
+:analyze
+verbose 384
+logging on
+enableinstall off
+init
+select missing better
+end
+:install
+enableinstall on
+init
+select missing better
+restorepoint "Driver updates"
+install
+end
+```
+
+Driver installation only occurs during the install phase when you set `enableinstall on`.
+
 ## Migration and Breaking Changes
 
 Whenever there is a **breaking change**, the major version number will be bumped,
