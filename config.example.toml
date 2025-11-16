@@ -285,6 +285,24 @@
 # (default: false)
 # winget_use_sudo = true
 
+# --- Windows Driver Updates (SDIO) ---
+# SDIO (Snappy Driver Installer Origin) integration mirrors the Linux
+# [firmware].upgrade semantics but targets OS drivers (not device firmware).
+# Default: a safe check-only run (no driver changes). Set sdio_upgrade=true to
+# allow installation of selected missing/better drivers. Must also be confirmed
+# via command line (e.g. `topgrade --yes sdio`).
+#
+# Optional overrides:
+#   sdio_binary = "C:/Path/To/SDIO.exe"        # If not found on PATH
+#   sdio_script = "C:/Path/To/custom_script.txt" # Advanced custom script (overrides embedded)
+#
+# NOTE: Keep firmware and driver updates conceptually separate to avoid
+# confusion: firmware updates device-resident code; SDIO updates OS-level
+# drivers.
+sdio_upgrade = false
+# sdio_binary = ""
+# sdio_script = ""
+
 
 [chezmoi]
 # Exclude encrypted files from update

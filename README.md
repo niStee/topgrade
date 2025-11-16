@@ -59,6 +59,38 @@ Just run `topgrade`.
 
 See `config.example.toml` for an example configuration file.
 
+### Windows Driver Updates (SDIO)
+
+Topgrade can optionally integrate with **Snappy Driver Installer Origin (SDIO)** to check or install Windows driver updates.
+
+- The boolean `windows.sdio_upgrade` mirrors the semantics of the Linux `firmware.upgrade` flag.
+  - When `false` (default): Topgrade performs a safe, check-only SDIO run (no driver changes).
+  - When `true`: Topgrade will create a restore point and install selected safe/missing/better drivers.
+- Drivers (SDIO) differ from firmware (fwupd) — firmware updates
+  device‑resident code, while SDIO replaces OS‑level drivers. Keeping the
+  flags separate avoids cross‑platform confusion.
+- Topgrade embeds a minimal SDIO script by default for predictable
+  behavior. Advanced users can override it with `windows.sdio_script`
+  and/or provide a custom binary path using `windows.sdio_binary`.
+
+Example snippet:
+
+```toml
+[windows]
+# Perform only a safety check (default behavior)
+sdio_upgrade = false
+# Optional overrides (uncomment as needed)
+# sdio_binary = "C:/Tools/SDIO/SDIO.exe"
+# sdio_script = "C:/Tools/SDIO/custom_script.txt"
+```
+
+Security considerations:
+
+- SDIO must be explicitly confirmed (`--yes sdio`) to run.
+- Installing drivers may require elevation; Topgrade warns if already elevated.
+- A restore point is requested before installation in the embedded script.
+- Provide only trusted custom scripts/binaries.
+
 ## Migration and Breaking Changes
 
 Whenever there is a **breaking change**, the major version number will be bumped,

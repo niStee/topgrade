@@ -112,6 +112,10 @@ pub struct Windows {
     wsl_update_use_web_download: Option<bool>,
     winget_silent_install: Option<bool>,
     winget_use_sudo: Option<bool>,
+    // SDIO (Snappy Driver Installer Origin) integration
+    sdio_binary: Option<String>,
+    sdio_script: Option<String>,
+    sdio_upgrade: Option<bool>,
 }
 
 #[derive(Deserialize, Default, Debug, Merge)]
@@ -1591,6 +1595,30 @@ impl Config {
             .as_ref()
             .and_then(|windows| windows.winget_silent_install)
             .unwrap_or(true)
+    }
+
+    // SDIO getters (Windows only)
+    #[cfg(windows)]
+    pub fn sdio_upgrade(&self) -> bool {
+        self.config_file
+            .windows
+            .as_ref()
+            .and_then(|windows| windows.sdio_upgrade)
+            .unwrap_or(false)
+    }
+    #[cfg(windows)]
+    pub fn sdio_binary(&self) -> Option<&str> {
+        self.config_file
+            .windows
+            .as_ref()
+            .and_then(|windows| windows.sdio_binary.as_deref())
+    }
+    #[cfg(windows)]
+    pub fn sdio_script(&self) -> Option<&str> {
+        self.config_file
+            .windows
+            .as_ref()
+            .and_then(|windows| windows.sdio_script.as_deref())
     }
 
     pub fn allow_root(&self) -> bool {

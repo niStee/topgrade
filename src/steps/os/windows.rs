@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::{ffi::OsStr, process::Command};
 
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{eyre, Result};
 use etcetera::base_strategy::BaseStrategy;
 use rust_i18n::t;
 use tracing::debug;
@@ -68,6 +68,114 @@ pub fn run_scoop(ctx: &ExecutionContext) -> Result<()> {
         ctx.execute(&scoop).args(["cleanup", "*"]).status_checked()?;
         ctx.execute(&scoop).args(["cache", "rm", "-a"]).status_checked()?
     }
+    Ok(())
+}
+
+/// SDIO (Snappy Driver Installer Origin) driver update step
+/// Mirrors the semantics of the Linux firmware step: default is a safe check-only mode, optional install when enabled.
+pub fn run_sdio(ctx: &ExecutionContext) -> Result<()> {
+    // Must be explicitly confirmed
+    if !ctx.config().yes(Step::Sdio) {
+        return Err(SkipStep(t!("SDIO requires confirmation to run").to_string()).into());
+    }
+
+    print_separator("SDIO");
+
+    // Warn about elevation (drivers can affect system stability)
+    if crate::utils::is_elevated() {
+        print_warning("Running SDIO elevated – ensure trust of binary and script (if overridden)");
+    }
+
+    // Locate SDIO binary (preferred: exact SDIO, fallback: SDIO_R*.exe)
+    let sdio = match require("SDIO") {
+        Ok(path) => path,
+        Err(_) => {
+            // Fallback path scan
+            let mut exact: Option<std::path::PathBuf> = None;
+            let mut versioned: Vec<std::path::PathBuf> = Vec::new();
+            if let Some(path_os) = std::env::var_os("PATH") {
+                for dir in std::env::split_paths(&path_os) {
+                    if let Ok(read) = std::fs::read_dir(&dir) {
+                        for entry in read.flatten() {
+                            let p = entry.path();
+                            if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
+                                let lower = name.to_ascii_lowercase();
+                                if lower == "sdio.exe" {
+                                    exact = Some(p.clone());
+                                } else if lower.starts_with("sdio_r") && lower.ends_with(".exe") {
+                                    versioned.push(p);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(p) = exact {
+                p
+            } else if !versioned.is_empty() {
+                versioned.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
+                versioned.remove(0)
+            } else {
+                return Err(SkipStep("SDIO.exe not found in PATH; set windows.sdio_binary".into()).into());
+            }
+        }
+    };
+
+    // Allow explicit binary override
+    let sdio = if let Some(explicit) = ctx.config().sdio_binary() {
+        std::path::PathBuf::from(explicit)
+    } else {
+        sdio
+    };
+
+    // Script override vs embedded minimal script
+    let (script_path, _temp_file): (std::path::PathBuf, Option<tempfile::NamedTempFile>) = if let Some(custom) =
+        ctx.config().sdio_script()
+    {
+        let custom_path = std::path::PathBuf::from(custom);
+        if !custom_path.exists() || !custom_path.is_file() {
+            return Err(SkipStep(format!("SDIO script invalid: {}", custom)).into());
+        }
+        (custom_path, None)
+    } else {
+        let upgrade = ctx.config().sdio_upgrade();
+        let content = if upgrade {
+            // Install script (restore point + install)
+            "logging on\nverbose 384\ninit\nselect missing better\nrestorepoint Topgrade driver updates\nenableinstall on\ninstall\nend\n"
+        } else {
+            // Check-only script
+            "logging on\nverbose 384\ninit\nselect missing better\nenableinstall off\nend\n"
+        };
+        let mut tmp = tempfile::Builder::new()
+            .prefix("topgrade_sdio_")
+            .suffix(".txt")
+            .tempfile()
+            .map_err(|e| eyre!("Failed to create temp SDIO script: {e}"))?;
+        use std::io::Write;
+        tmp.write_all(content.as_bytes())
+            .map_err(|e| eyre!("Failed to write temp SDIO script: {e}"))?;
+        let path = tmp.path().to_path_buf();
+        (path, Some(tmp))
+    };
+
+    // Execute – single pass (script contains install logic if enabled)
+    if ctx.config().sdio_upgrade() {
+        println!("{}", t!("Checking and installing driver updates..."));
+    } else {
+        println!("{}", t!("Checking for driver updates..."));
+    }
+
+    ctx.execute(&sdio)
+        .arg(format!("-script:{}", script_path.display()))
+        .status_checked()?;
+
+    if ctx.config().sdio_upgrade() {
+        println!("{}", t!("SDIO driver updates completed"));
+    } else {
+        println!("{}", t!("SDIO driver check completed"));
+    }
+
+    // temp_file drops automatically; no explicit cleanup needed
     Ok(())
 }
 
