@@ -286,41 +286,50 @@
 # winget_use_sudo = true
 
 # --- SDIO (Snappy Driver Installer Origin) driver updates (optional) ---
-# To enable the SDIO step you must:
-# 1. Provide a text script file via `sdio_script` (required)
-# 2. Optionally set `sdio_binary` if SDIO.exe is not in your PATH
-# 3. Invoke Topgrade with confirmation: `topgrade --yes Sdio` (or global `--yes`)
+# IMPORTANT: Like firmware updates, driver installation is system-specific and potentially risky.
+# Topgrade invokes SDIO.exe with YOUR script - you control what gets installed.
 #
-# Download SDIO: https://www.snappy-driver-installer.org/
+# To enable the SDIO step:
+# 1. Download SDIO: https://www.snappy-driver-installer.org/
+# 2. Create your own text script following SDIO's scripting format
+# 3. Test your script in safe mode first (enableinstall off)
+# 4. Set sdio_script path below
+# 5. Run: topgrade --yes sdio (confirmation required for safety)
 #
-# The script is a plain text file consumed with `-script:<file>`. Topgrade runs it twice:
-#   Phase 1: `SDIO.exe -script:script.txt analyze`
-#   Phase 2: `SDIO.exe -script:script.txt install`
-# The parameter (`analyze` / `install`) becomes `%1` inside the script; use an initial `goto %1`
-# to branch into the appropriate label. A minimal example:
+# SDIO scripting reference: See SDIO documentation and example scripts in SDIO package
+#
+# Topgrade runs your script twice with different parameters:
+#   Phase 1: SDIO.exe -script:yourscript.txt analyze  (parameter %1 = "analyze")
+#   Phase 2: SDIO.exe -script:yourscript.txt install  (parameter %1 = "install")
+#
+# Your script should use 'goto %1' to branch to :analyze and :install labels.
+# Minimal script structure:
 #
 #   goto %1
 #   :analyze
-#   echo Analyzing drivers...
-#   verbose 384
+#   echo Checking for driver updates...
 #   logging on
+#   verbose 384
 #   enableinstall off
 #   init
 #   select missing better
 #   end
 #   :install
 #   echo Installing drivers...
-#   enableinstall on
+#   logging on
+#   verbose 384
+#   enableinstall on        # Change to 'on' for real installs
 #   init
 #   select missing better
-#   restorepoint "Driver updates"
+#   restorepoint "Topgrade driver updates"
 #   install
 #   end
 #
-# Optional explicit path to SDIO binary (if not in PATH):
-# sdio_binary = "C:\\SDIO\\SDIO_R580.exe"
-# Required script path to enable the step:
-# sdio_script = "C:\\SDIO\\scripts\\install.txt"
+# Optional: Explicit path to SDIO binary (if not in PATH):
+# sdio_binary = "C:\\tools\\SDIO\\SDIO_R580.exe"
+#
+# Required: Path to YOUR script file:
+# sdio_script = "C:\\tools\\SDIO\\scripts\\my-drivers.txt"
 
 
 [chezmoi]

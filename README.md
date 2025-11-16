@@ -61,43 +61,50 @@ See `config.example.toml` for an example configuration file.
 
 ### Windows SDIO (Optional Driver Updates)
 
-Topgrade can optionally invoke **Snappy Driver Installer Origin (SDIO)** to analyze and update drivers.
+Topgrade can optionally invoke **Snappy Driver Installer Origin (SDIO)** to analyze and install drivers.
 
-To enable the SDIO step:
+**Important:** Like firmware updates on Linux (`fwupdmgr`), driver installation is system-specific and potentially
+risky. Topgrade orchestrates SDIO.exe execution but YOU control what gets installed via your own script.
 
-- Download SDIO: <https://www.snappy-driver-installer.org/>
-- Create a text script (SDIO's own scripting format) and set `sdio_script` under `[windows]` in your config.
-- (Optional) Set `sdio_binary` if `SDIO.exe` is not in your PATH.
-- Run Topgrade with confirmation: `topgrade --yes Sdio` (or global `--yes`).
+**Setup:**
 
-Invocation model:
-Topgrade runs SDIO twice:
+1. Download SDIO: <https://www.snappy-driver-installer.org/>
+2. Create your own SDIO text script (see SDIO documentation and included examples)
+3. **Test in safe mode first:** Set `enableinstall off` in your script and verify behavior
+4. Configure Topgrade (see `config.example.toml` for details)
+5. Run with explicit confirmation: `topgrade --yes sdio`
 
-1. Analyze phase: `SDIO.exe -script:script.txt analyze`
-2. Install phase: `SDIO.exe -script:script.txt install`
+**How it works:**
 
-Inside the script `%1` is the first argument; start the file with `goto %1` and define `:analyze` and `:install` labels.
-Minimal example:
+Topgrade runs SDIO twice with your script:
+
+- **Analyze phase:** `SDIO.exe -script:yourscript.txt analyze` - checks for updates
+- **Install phase:** `SDIO.exe -script:yourscript.txt install` - applies updates
+
+Your script receives the phase as parameter `%1` and should branch accordingly using `goto %1` with `:analyze` and
+`:install` labels.
+
+**Minimal script structure:**
 
 ```text
 goto %1
 :analyze
-verbose 384
 logging on
+verbose 384
 enableinstall off
 init
 select missing better
 end
 :install
-enableinstall on
-init
+enableinstall on         # Set to 'off' for testing
+init  
 select missing better
 restorepoint "Driver updates"
 install
 end
 ```
 
-Driver installation only occurs during the install phase when you set `enableinstall on`.
+See `config.example.toml` for full configuration options and SDIO's official documentation for advanced scripting.
 
 ## Migration and Breaking Changes
 
