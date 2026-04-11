@@ -1,0 +1,82 @@
+name: OSV Scanner
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - ".github/workflows/osv-scan.yml"
+      - ".github/osv-scanner-config.toml"
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - ".github/workflows/osv-scan.yml"
+      - ".github/osv-scanner-config.toml"
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  osv:
+    # Findings are informational — vulnerabilities surface in the GitHub Security
+    # tab via SARIF but do NOT fail the check.  To make them blocking, remove the
+    # exit-code 1 handling in the scanner step below.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        # action pin via: git ls-remote https://github.com/actions/checkout refs/tags/v6.0.2 | head -1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Prepare lockfile
+        # action pin via: git ls-remote https://github.com/dtolnay/rust-toolchain refs/heads/stable | head -1
+        uses: dtolnay/rust-toolchain@5d458579430fc14a04a08a1e7d3694f545e91ce6 # stable
+        with:
+          toolchain: stable
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: Run OSV-Scanner (Docker, pinned digest)
+        # exit code 1 = vulnerabilities found (informational); other non-zero = scanner error (fatal)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ github.workspace }}/osv-scan-output"
+          # Digest pinned via: docker pull ghcr.io/google/osv-scanner:latest && docker image inspect --format='{{index .RepoDigests 0}}' ghcr.io/google/osv-scanner:latest
+          docker run --rm \
+            -v "${{ github.workspace }}":/src:ro \
+            -v "${{ github.workspace }}/osv-scan-output":/out \
+            -w /src \
+            ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4 \
+            --config .github/osv-scanner-config.toml \
+            --lockfile Cargo.lock \
+            --recursive \
+            --format sarif \
+            --output /out/osv-results.sarif || {
+            rc=$?
+            # exit code 1 = vulnerabilities found; upload SARIF and continue
+            [ "$rc" -eq 1 ] && exit 0
+            # any other non-zero exit code is a genuine scanner error
+            exit "$rc"
+          }
+
+      - name: Upload SARIF
+        # action pin via: git ls-remote https://github.com/github/codeql-action refs/tags/v4.35.1 | head -1
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
+        if: ${{ always() && hashFiles('osv-scan-output/osv-results.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        with:
+          sarif_file: osv-scan-output/osv-results.sarif

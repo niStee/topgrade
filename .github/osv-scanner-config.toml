@@ -1,0 +1,6 @@
+# OSV Scanner configuration
+# To ignore a vulnerability, add an [[IgnoredVulns]] entry:
+# [[IgnoredVulns]]
+# id = "RUSTSEC-0000-0000"
+# reason = "Description of why this is ignored"
+# ignoreUntil = 2026-12-31T00:00:00Z
