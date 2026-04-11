@@ -7,7 +7,7 @@ on:
       - "Cargo.lock"
       - "src/**"
       - ".github/workflows/osv-scan.yml"
-      - ".github/osv-scanner-config.yaml"
+      - ".github/osv-scanner-config.toml"
   push:
     branches: [main]
     paths:
@@ -15,7 +15,7 @@ on:
       - "Cargo.lock"
       - "src/**"
       - ".github/workflows/osv-scan.yml"
-      - ".github/osv-scanner-config.yaml"
+      - ".github/osv-scanner-config.toml"
 
 permissions:
   contents: read
@@ -57,7 +57,7 @@ jobs:
             -v "${{ github.workspace }}/osv-scan-output":/out \
             -w /src \
             ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4 \
-            --config .github/osv-scanner-config.yaml \
+            --config .github/osv-scanner-config.toml \
             --lockfile Cargo.lock \
             --recursive \
             --format sarif \

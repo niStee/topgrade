@@ -1,0 +1,5 @@
+[[IgnoredVulns]]
+# Example (remove or replace as needed):
+# id = "RUSTSEC-0000-0000"
+# reason = "Example ignore with expiry; replace with real items after triage"
+# ignoreUntil = 2026-12-31T00:00:00Z
