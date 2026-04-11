@@ -37,7 +37,6 @@ jobs:
 
       - name: Run Trivy filesystem scan (repo, pinned digest)
         shell: bash
-        continue-on-error: true
         run: |
           set -euo pipefail
           # Digest pinned via: docker pull aquasec/trivy:latest && docker image inspect --format='{{index .RepoDigests 0}}' aquasec/trivy:latest
