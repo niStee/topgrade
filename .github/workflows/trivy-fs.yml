@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Checkout
         # action pin via: git ls-remote https://github.com/actions/checkout refs/tags/v6.0.2 | head -1
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -53,8 +53,8 @@ jobs:
             .
 
       - name: Upload SARIF
-        # use the v4 series to stay aligned with the rest of the repository's CodeQL uploader configuration
-        uses: github/codeql-action/upload-sarif@v4
+        # action pin via: git ls-remote https://github.com/github/codeql-action refs/tags/v4.35.1 | head -1
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         if: ${{ always() && hashFiles('trivy-repo.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         with:
           sarif_file: trivy-repo.sarif
