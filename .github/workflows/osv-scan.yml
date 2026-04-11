@@ -47,9 +47,7 @@ jobs:
         run: cargo fetch --locked
 
       - name: Run OSV-Scanner (Docker, pinned digest)
-        # Informational: exit code 1 means vulnerabilities found, not a failure.
-        # Results are uploaded to GitHub Security tab via SARIF below.
-        continue-on-error: true
+        # exit code 1 = vulnerabilities found (informational); other non-zero = scanner error (fatal)
         shell: bash
         run: |
           set -euo pipefail
@@ -64,7 +62,13 @@ jobs:
             --lockfile Cargo.lock \
             --recursive \
             --format sarif \
-            --output /out/osv-results.sarif
+            --output /out/osv-results.sarif || {
+            rc=$?
+            # exit code 1 = vulnerabilities found; upload SARIF and continue
+            [ "$rc" -eq 1 ] && exit 0
+            # any other non-zero exit code is a genuine scanner error
+            exit "$rc"
+          }
 
       - name: Upload SARIF
         # action pin via: git ls-remote https://github.com/github/codeql-action refs/tags/v4.35.1 | head -1
