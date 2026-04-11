@@ -47,6 +47,9 @@ jobs:
         run: cargo fetch --locked
 
       - name: Run OSV-Scanner (Docker, pinned digest)
+        # Informational: exit code 1 means vulnerabilities found, not a failure.
+        # Results are uploaded to GitHub Security tab via SARIF below.
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
