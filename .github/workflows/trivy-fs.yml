@@ -53,8 +53,8 @@ jobs:
             .
 
       - name: Upload SARIF
-        # action pin via: git ls-remote https://github.com/github/codeql-action refs/tags/codeql-bundle-v3.27.7 | head -1
-        uses: github/codeql-action/upload-sarif@5d5cd550d3e189c569da8f16ea8de2d821c9bf7a # v3
+        # use the v4 series to stay aligned with the rest of the repository's CodeQL uploader configuration
+        uses: github/codeql-action/upload-sarif@v4
         if: ${{ always() && hashFiles('trivy-repo.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         with:
           sarif_file: trivy-repo.sarif
