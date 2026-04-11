@@ -39,9 +39,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          touch "${{ github.workspace }}/trivy-repo.sarif"
           # Digest pinned via: docker pull aquasec/trivy:latest && docker image inspect --format='{{index .RepoDigests 0}}' aquasec/trivy:latest
           docker run --rm \
-            -v "${{ github.workspace }}":/src \
+            -v "${{ github.workspace }}":/src:ro \
+            -v "${{ github.workspace }}/trivy-repo.sarif":/src/trivy-repo.sarif \
             -w /src \
             aquasec/trivy@sha256:ac2f9d0197456a8ce460884b113e49d65b667f506c31d014c9955869a7a5d682 \
             fs \
