@@ -2,8 +2,18 @@ name: SBOM (Syft)
 
 on:
   pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - .github/workflows/sbom.yml
   push:
     branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - .github/workflows/sbom.yml
 
 permissions:
   contents: read

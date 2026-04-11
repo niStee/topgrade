@@ -35,20 +35,34 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Get current date for Trivy cache key
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Cache Trivy vulnerability DB
+        # action pin via: git ls-remote https://github.com/actions/cache refs/tags/v4.2.2 | head -1
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ runner.os }}-${{ steps.date.outputs.date }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
       - name: Run Trivy filesystem scan (repo, pinned digest)
         shell: bash
         run: |
           set -euo pipefail
-          touch "${{ github.workspace }}/trivy-repo.sarif"
+          mkdir -p ~/.cache/trivy "${{ github.workspace }}/trivy-out"
           # Digest pinned via: docker pull aquasec/trivy:latest && docker image inspect --format='{{index .RepoDigests 0}}' aquasec/trivy:latest
           docker run --rm \
             -v "${{ github.workspace }}":/src:ro \
-            -v "${{ github.workspace }}/trivy-repo.sarif":/src/trivy-repo.sarif \
+            -v "${{ github.workspace }}/trivy-out":/out \
+            -v ~/.cache/trivy:/root/.cache/trivy \
             -w /src \
             aquasec/trivy@sha256:ac2f9d0197456a8ce460884b113e49d65b667f506c31d014c9955869a7a5d682 \
             fs \
             --format sarif \
-            --output trivy-repo.sarif \
+            --output /out/trivy-repo.sarif \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
             --vuln-type os,library \
@@ -57,6 +71,6 @@ jobs:
       - name: Upload SARIF
         # action pin via: git ls-remote https://github.com/github/codeql-action refs/tags/v4.35.1 | head -1
         uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
-        if: ${{ always() && hashFiles('trivy-repo.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        if: ${{ always() && hashFiles('trivy-out/trivy-repo.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         with:
-          sarif_file: trivy-repo.sarif
+          sarif_file: trivy-out/trivy-repo.sarif
