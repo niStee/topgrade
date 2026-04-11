@@ -1,5 +1,6 @@
-[[IgnoredVulns]]
-# Example (remove or replace as needed):
+# OSV Scanner configuration
+# To ignore a vulnerability, add an [[IgnoredVulns]] entry:
+# [[IgnoredVulns]]
 # id = "RUSTSEC-0000-0000"
-# reason = "Example ignore with expiry; replace with real items after triage"
+# reason = "Description of why this is ignored"
 # ignoreUntil = 2026-12-31T00:00:00Z
