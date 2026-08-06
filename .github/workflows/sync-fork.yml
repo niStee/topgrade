@@ -1,30 +1,10 @@
 name: Sync Fork with Upstream
 
 # Pull-based fork sync with GitHub App installation token for approval.
-#
-# Uses `actions/create-github-app-token@v2` to mint a short-lived installation
-# token per workflow run. The App is scoped to ONLY the repos where it's
-# installed — no org-wide or account-wide access. Tokens expire within the
-# hour and cannot be reused if exfiltrated.
-#
-# Prerequisites (already configured on this repo):
-#   - GitHub App named 'fork-sync-approver' (or similar) installed on this repo
-#   - Repo secret 'APPID4510581' containing the .pem private key
-#   - Repo secret 'APP_ID' containing just the number 4510581
-#
-# Why this design (vs. PAT / OAuth):
-#   - GITHUB_TOKEN (github-actions[bot]) cannot self-approve its own PRs
-#     (GitHub blocks this even for admins via API, HTTP 422)
-#   - PATs are long-lived, single-tenant, and broad-scope — risky on public
-#     repos (anyone can read the secret via Actions API or fork PR attacks)
-#   - OAuth tokens have org-wide scopes — dangerous if leaked
-#   - GitHub App installation tokens are short-lived, repo-scoped, and
-#     least-privilege — the correct choice for fork sync automation
-#
-# Pattern sources (verified Aug 2026):
-#   - agent-of-empires #1420 (pull-based)
-#   - ConductionNL #61 (PAT-approver pattern; we use App instead of PAT)
-#   - bluesky-social/social-app PR #11010 (App-based workflow approval)
+# Uses `actions/create-github-app-token@v2` (pinned to SHA per topgrade's
+# action-pinning policy) to mint a short-lived installation token per workflow
+# run. The App is scoped to ONLY the repos where it's installed. Tokens
+# expire within the hour and cannot be reused if exfiltrated.
 
 on:
   schedule:
@@ -45,7 +25,7 @@ jobs:
     steps:
       - name: Mint short-lived GitHub App installation token
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APPID4510581 }}
@@ -100,14 +80,14 @@ jobs:
             --title "Sync fork with $PARENT:$UPSTREAM_DEFAULT" \
             --body "Automated pull-based sync from [$PARENT](https://github.com/$PARENT).
 
-          Uses GitHub App installation token for short-lived, repo-scoped approval (actions/create-github-app-token@v2).")
+          Uses GitHub App installation token for short-lived, repo-scoped approval.")
           PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
           echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "url=$PR_URL" >> $GITHUB_OUTPUT
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
           echo "::notice::Opened sync PR #$PR_NUMBER: $PR_URL"
 
-      - name: Approve PR via GitHub App installation token
+      - name: Approve PR via GitHub App installation token (different identity from PR author)
         if: steps.upstream.outputs.sync_needed == 'true'
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
