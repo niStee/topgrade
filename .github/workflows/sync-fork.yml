@@ -2,7 +2,7 @@ name: Sync Fork with Upstream
 
 # Pull-based fork sync with Dependabot-style handoff.
 #
-# Uses `actions/create-github-app-token@v2` to mint a short-lived installation
+# Uses `actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349` to mint a short-lived installation
 # token per workflow run. The App is scoped to ONLY the repos where it's
 # installed. Tokens expire within the hour and cannot be reused if exfiltrated.
 #
@@ -46,7 +46,7 @@ jobs:
     steps:
       - name: Mint short-lived GitHub App installation token
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APPID4510581 }}
