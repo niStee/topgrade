@@ -1,21 +1,30 @@
 name: Sync Fork with Upstream
 
-# Pull-based fork sync with PAT-approver pattern.
+# Pull-based fork sync with GitHub App installation token for approval.
 #
-# The sync workflow runs as github-actions[bot] (GITHUB_TOKEN), which cannot
-# self-approve its own PRs (GitHub enforces this even for admins via API).
-# To satisfy the `Require Approvals` ruleset (required_approving_review_count:
-# 1) without weakening branch protection, the workflow uses a fine-grained PAT
-# (SYNC_PAT secret, owned by the repo admin) to approve the PR. The approver
-# identity (niStee) differs from the PR author (github-actions[bot]), so the
-# approval is valid and counts toward required_approving_review_count.
+# Uses `actions/create-github-app-token@v2` to mint a short-lived installation
+# token per workflow run. The App is scoped to ONLY the repos where it's
+# installed — no org-wide or account-wide access. Tokens expire within the
+# hour and cannot be reused if exfiltrated.
 #
-# Prerequisites:
-#   - Create a fine-grained PAT with `contents: read` + `pull-requests: write`
-#     scoped to this repo.
-#   - Set it as the `SYNC_PAT` repository secret.
+# Prerequisites (already configured on this repo):
+#   - GitHub App named 'fork-sync-approver' (or similar) installed on this repo
+#   - Repo secret 'APPID4510581' containing the .pem private key
+#   - Repo secret 'APP_ID' containing just the number 4510581
 #
-# Pattern: agent-of-empires #1420 (pull-based), ConductionNL #61 (PAT approach).
+# Why this design (vs. PAT / OAuth):
+#   - GITHUB_TOKEN (github-actions[bot]) cannot self-approve its own PRs
+#     (GitHub blocks this even for admins via API, HTTP 422)
+#   - PATs are long-lived, single-tenant, and broad-scope — risky on public
+#     repos (anyone can read the secret via Actions API or fork PR attacks)
+#   - OAuth tokens have org-wide scopes — dangerous if leaked
+#   - GitHub App installation tokens are short-lived, repo-scoped, and
+#     least-privilege — the correct choice for fork sync automation
+#
+# Pattern sources (verified Aug 2026):
+#   - agent-of-empires #1420 (pull-based)
+#   - ConductionNL #61 (PAT-approver pattern; we use App instead of PAT)
+#   - bluesky-social/social-app PR #11010 (App-based workflow approval)
 
 on:
   schedule:
@@ -34,18 +43,19 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Check SYNC_PAT secret is configured
-        run: |
-          if [ -z "${{ secrets.SYNC_PAT }}" ]; then
-            echo "::error::SYNC_PAT secret is not set. Create a fine-grained PAT with 'contents: read' + 'pull-requests: write' scoped to this repo, then add it as the SYNC_PAT repository secret. See: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
-            exit 1
-          fi
-          echo "SYNC_PAT is configured."
+      - name: Mint short-lived GitHub App installation token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APPID4510581 }}
+          owner: niStee
+          repositories: antragsgruen,claw-code,oh-my-openagent,opencode,topgrade
 
       - name: Resolve upstream and check if sync is needed
         id: upstream
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           PARENT=$(gh api "repos/${{ github.repository }}" --jq '.parent.full_name // empty')
           if [ -z "$PARENT" ]; then
@@ -73,7 +83,7 @@ jobs:
         if: steps.upstream.outputs.sync_needed == 'true'
         id: pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
           SYNC_BRANCH="sync/upstream-$(date -u +%Y%m%d-%H%M%S)"
@@ -90,34 +100,32 @@ jobs:
             --title "Sync fork with $PARENT:$UPSTREAM_DEFAULT" \
             --body "Automated pull-based sync from [$PARENT](https://github.com/$PARENT).
 
-          Replaces the direct merge-upstream push (blocked by the Require Approvals ruleset — HTTP 422 Repository rule violations) with a PR + PAT-approval + merge approach that satisfies the ruleset without weakening branch protection.
-
-          Pattern: agent-of-empires #1420, ConductionNL #61.")
+          Uses GitHub App installation token for short-lived, repo-scoped approval (actions/create-github-app-token@v2).")
           PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
           echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "url=$PR_URL" >> $GITHUB_OUTPUT
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
           echo "::notice::Opened sync PR #$PR_NUMBER: $PR_URL"
 
-      - name: Approve PR via PAT (different identity from PR author)
+      - name: Approve PR via GitHub App installation token
         if: steps.upstream.outputs.sync_needed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           PR_NUMBER="${{ steps.pr.outputs.number }}"
           if gh api -X POST "repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" \
                -f event="APPROVE" \
-               -f body="Auto-approved by Sync Fork workflow (PAT-approver pattern)."; then
-            echo "::notice::Approved PR #$PR_NUMBER via SYNC_PAT."
+               -f body="Auto-approved by Sync Fork workflow (GitHub App installation token)."; then
+            echo "::notice::Approved PR #$PR_NUMBER via GitHub App token."
           else
-            echo "::error::Failed to approve PR #$PR_NUMBER via SYNC_PAT."
+            echo "::error::Failed to approve PR #$PR_NUMBER."
             exit 1
           fi
 
       - name: Merge PR (all ruleset requirements satisfied)
         if: steps.upstream.outputs.sync_needed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           PR_NUMBER="${{ steps.pr.outputs.number }}"
           if gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --delete-branch; then
