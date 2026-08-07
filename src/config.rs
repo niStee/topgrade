@@ -169,6 +169,12 @@ pub struct Npm {
 
 #[derive(Deserialize, Default, Debug, Merge)]
 #[serde(deny_unknown_fields)]
+pub struct Skills {
+    package_manager: Option<SkillsPackageManager>,
+}
+
+#[derive(Deserialize, Default, Debug, Merge)]
+#[serde(deny_unknown_fields)]
 pub struct Deno {
     version: Option<String>,
 }
@@ -239,6 +245,15 @@ pub enum ArchPackageManager {
     Shelly,
     Trizen,
     Yay,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, Default, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillsPackageManager {
+    #[default]
+    Npx,
+    Pnpm,
+    Bun,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Default)]
@@ -471,6 +486,7 @@ pub struct Zigup {
 #[serde(deny_unknown_fields)]
 pub struct VscodeConfig {
     profile: Option<String>,
+    cleanup_obsolete_extensions: Option<bool>,
 }
 
 #[derive(Deserialize, Default, Debug, Merge)]
@@ -613,6 +629,9 @@ pub struct ConfigFile {
 
     #[merge(strategy = merge2::option::recursive)]
     pkgfile: Option<Pkgfile>,
+
+    #[merge(strategy = merge2::option::recursive)]
+    skills: Option<Skills>,
 
     #[merge(strategy = merge2::option::recursive)]
     viteplus: Option<VitePlus>,
@@ -1993,6 +2012,15 @@ impl Config {
             .unwrap_or(false)
     }
 
+    /// Package runner to use to run the `skills` CLI (npx / pnpx / bunx)
+    pub fn skills_package_manager(&self) -> SkillsPackageManager {
+        self.config_file
+            .skills
+            .as_ref()
+            .and_then(|skills| skills.package_manager)
+            .unwrap_or_default()
+    }
+
     pub fn deno_version(&self) -> Option<&str> {
         self.config_file.deno.as_ref().and_then(|deno| deno.version.as_deref())
     }
@@ -2196,6 +2224,14 @@ impl Config {
         } else {
             Some(profile.as_str())
         }
+    }
+
+    pub fn vscode_cleanup_obsolete_extensions(&self) -> bool {
+        self.config_file
+            .vscode
+            .as_ref()
+            .and_then(|vscode| vscode.cleanup_obsolete_extensions)
+            .unwrap_or(false)
     }
 
     pub fn doom_aot(&self) -> bool {
