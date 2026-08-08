@@ -66,18 +66,31 @@ jobs:
           fi
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
           UPSTREAM_DEFAULT=$(gh api "repos/$PARENT" --jq '.default_branch')
-          FORK_HEAD=$(gh api "repos/${{ github.repository }}/branches/$DEFAULT_BRANCH" --jq '.commit.sha')
           UPSTREAM_HEAD=$(gh api "repos/$PARENT/branches/$UPSTREAM_DEFAULT" --jq '.commit.sha')
           echo "parent=$PARENT" >> $GITHUB_OUTPUT
           echo "upstream_default=$UPSTREAM_DEFAULT" >> $GITHUB_OUTPUT
           echo "upstream_head=$UPSTREAM_HEAD" >> $GITHUB_OUTPUT
-          echo "fork_head=$FORK_HEAD" >> $GITHUB_OUTPUT
-          if [ "$FORK_HEAD" = "$UPSTREAM_HEAD" ]; then
-            echo "::notice::Fork is up to date with upstream — no sync needed."
-            echo "sync_needed=false" >> $GITHUB_OUTPUT
-          else
-            echo "::notice::Fork is behind upstream — sync needed."
+          # Use the compare API to determine if a sync PR is actually needed.
+          # Status values:
+          #   "identical" — fork HEAD == upstream HEAD                  → skip
+          #   "ahead"     — fork has commits upstream doesn't have       → skip (no sync needed)
+          #   "behind"    — upstream has commits fork doesn't have      → sync (if commits > 0)
+          #   "diverged"  — both have unique commits                    → manual intervention required
+          # The "behind" + 0 commits edge case happens when upstream history was rewritten
+          # but the SHA differs — treat as no-op (matches old behavior).
+          COMPARE=$(gh api "repos/${{ github.repository }}/compare/${DEFAULT_BRANCH}...${PARENT}:${UPSTREAM_DEFAULT}")
+          STATUS=$(echo "$COMPARE" | jq -r '.status')
+          BEHIND=$(echo "$COMPARE" | jq -r '.behind_by')
+          COMMIT_COUNT=$(echo "$COMPARE" | jq -r '.total_commits')
+          echo "compare_status=$STATUS" >> $GITHUB_OUTPUT
+          echo "behind_by=$BEHIND" >> $GITHUB_OUTPUT
+          echo "compare_commits=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+          if [ "$STATUS" = "behind" ] && [ "$COMMIT_COUNT" -gt 0 ]; then
+            echo "::notice::Fork is behind upstream by $BEHIND commits — opening sync PR."
             echo "sync_needed=true" >> $GITHUB_OUTPUT
+          else
+            echo "::notice::No sync needed (compare status: $STATUS, behind_by: $BEHIND)."
+            echo "sync_needed=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Create sync branch and open PR
