@@ -67,9 +67,11 @@ jobs:
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
           UPSTREAM_DEFAULT=$(gh api "repos/$PARENT" --jq '.default_branch')
           UPSTREAM_HEAD=$(gh api "repos/$PARENT/branches/$UPSTREAM_DEFAULT" --jq '.commit.sha')
+          UPSTREAM_ORG="${PARENT%/*}"  # e.g. "topgrade-rs/topgrade" → "topgrade-rs"
           echo "parent=$PARENT" >> $GITHUB_OUTPUT
           echo "upstream_default=$UPSTREAM_DEFAULT" >> $GITHUB_OUTPUT
           echo "upstream_head=$UPSTREAM_HEAD" >> $GITHUB_OUTPUT
+          echo "upstream_org=$UPSTREAM_ORG" >> $GITHUB_OUTPUT
           # Use the compare API to determine if a sync PR is actually needed.
           # Status values:
           #   "identical" — fork HEAD == upstream HEAD                  → skip
@@ -78,10 +80,17 @@ jobs:
           #   "diverged"  — both have unique commits                    → manual intervention required
           # The "behind" + 0 commits edge case happens when upstream history was rewritten
           # but the SHA differs — treat as no-op (matches old behavior).
-          COMPARE=$(gh api "repos/${{ github.repository }}/compare/${DEFAULT_BRANCH}...${PARENT}:${UPSTREAM_DEFAULT}")
-          STATUS=$(echo "$COMPARE" | jq -r '.status')
-          BEHIND=$(echo "$COMPARE" | jq -r '.behind_by')
-          COMMIT_COUNT=$(echo "$COMPARE" | jq -r '.total_commits')
+          # The compare path uses ORG:BRANCH (not ORG/REPO:BRANCH) — the latter returns 404.
+          COMPARE=$(gh api "repos/${{ github.repository }}/compare/${DEFAULT_BRANCH}...${UPSTREAM_ORG}:${UPSTREAM_DEFAULT}")
+          COMPARE_EXIT=$?
+          STATUS=$(echo "$COMPARE" | jq -r '.status' 2>/dev/null || echo "error")
+          BEHIND=$(echo "$COMPARE" | jq -r '.behind_by' 2>/dev/null || echo "?")
+          COMMIT_COUNT=$(echo "$COMPARE" | jq -r '.total_commits' 2>/dev/null || echo "?")
+          if [ "$COMPARE_EXIT" -ne 0 ]; then
+            echo "::warning::Compare API call failed (exit $COMPARE_EXIT): $COMPARE"
+            echo "sync_needed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           echo "compare_status=$STATUS" >> $GITHUB_OUTPUT
           echo "behind_by=$BEHIND" >> $GITHUB_OUTPUT
           echo "compare_commits=$COMMIT_COUNT" >> $GITHUB_OUTPUT
