@@ -113,6 +113,18 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
+          # Check if a sync PR is already open before creating a new one.
+          EXISTING_PR=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("sync/upstream-")) | .number' \
+            2>/dev/null | head -1)
+          if [ -n "$EXISTING_PR" ]; then
+            echo "::notice::Sync PR already open (#$EXISTING_PR); no-op"
+            echo "number=$EXISTING_PR" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
           SYNC_BRANCH="sync/upstream-$(date -u +%Y%m%d-%H%M%S)"
           # Create the sync branch on the fork, pointing at upstream's HEAD
