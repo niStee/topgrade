@@ -23,9 +23,12 @@ pub const DEPRECATED_STEPS: [Step; 1] = [Step::NixHelper];
 #[strum(serialize_all = "snake_case")]
 pub enum Step {
     AM,
+    Adless,
     AndroidStudio,
     Antigravity,
+    AntigravityCli,
     AppMan,
+    AppManager,
     Aqua,
     Asdf,
     Atom,
@@ -212,14 +215,25 @@ impl Step {
                 #[cfg(target_os = "linux")]
                 runner.execute(*self, "am", || linux::run_am(ctx))?
             }
+            Adless =>
+            {
+                #[cfg(unix)]
+                runner.execute(*self, "Adless", || unix::run_adless(ctx))?
+            }
             AndroidStudio => runner.execute(*self, "Android Studio Plugins", || generic::run_android_studio(ctx))?,
             Antigravity => runner.execute(*self, "Antigravity extensions", || {
                 generic::run_antigravity_extensions_update(ctx)
             })?,
+            AntigravityCli => runner.execute(*self, "Antigravity CLI", || generic::run_antigravity_cli(ctx))?,
             AppMan =>
             {
                 #[cfg(target_os = "linux")]
                 runner.execute(*self, "appman", || linux::run_appman(ctx))?
+            }
+            AppManager =>
+            {
+                #[cfg(target_os = "linux")]
+                runner.execute(*self, "AppManager", || linux::run_app_manager(ctx))?
             }
             Aqua => runner.execute(*self, "aqua", || generic::run_aqua(ctx))?,
             Asdf =>
@@ -820,6 +834,7 @@ pub(crate) fn default_steps() -> Vec<Step> {
         ConfigUpdate,
         AM,
         AppMan,
+        AppManager,
         DebGet,
         Toolbx,
         Snap,
@@ -858,6 +873,7 @@ pub(crate) fn default_steps() -> Vec<Step> {
         Sdkman,
         Rcm,
         Maza,
+        Adless,
         Hyprpm,
         Atuin,
         Atom,
@@ -978,6 +994,7 @@ pub(crate) fn default_steps() -> Vec<Step> {
         InstallRelease,
         Vagrant,
         HermesAgent,
+        AntigravityCli,
         // Steps that should run last
         // Last out of convention
         CustomCommands,
