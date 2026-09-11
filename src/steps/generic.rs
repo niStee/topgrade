@@ -120,7 +120,7 @@ pub fn run_gem(ctx: &ExecutionContext) -> Result<()> {
 
     print_separator("Gems");
 
-    if !env::var_os("RBENV_SHELL").is_none() {
+    if env::var_os("RBENV_SHELL").is_some() {
         debug!("Detected rbenv. Avoiding --user-install");
     }
 
@@ -191,7 +191,13 @@ pub fn run_sheldon(ctx: &ExecutionContext) -> Result<()> {
 
     print_separator("Sheldon");
 
-    ctx.execute(sheldon).args(["lock", "--update"]).status_checked()
+    ctx.execute(sheldon)
+        .args(["lock", "--update"])
+        .arg_if(ctx.config().sheldon_quiet(), "--quiet")
+        .arg_if(ctx.config().sheldon_verbose(), "--verbose")
+        .arg_if(ctx.config().yes(Step::Sheldon), "--non-interactive")
+        .status_checked()?;
+    Ok(())
 }
 
 pub fn run_fossil(ctx: &ExecutionContext) -> Result<()> {
@@ -2369,19 +2375,47 @@ fn run_jetbrains_ide(ctx: &ExecutionContext, bin: PathBuf, name: &str) -> Result
     run_jetbrains_ide_generic::<true>(ctx, bin, name)
 }
 
+enum Studio {
+    AndroidStudio(PathBuf),
+    WordPressStudio(PathBuf),
+}
+
+impl Studio {
+    fn android_studio(self) -> Result<PathBuf> {
+        match self {
+            Studio::AndroidStudio(studio) => Ok(studio),
+            Studio::WordPressStudio(studio) => Err(SkipStep(format!(
+                "Command `{}` points to WordPress Studio CLI, not Android Studio",
+                studio.display()
+            ))
+            .into()),
+        }
+    }
+
+    fn get(ctx: &ExecutionContext) -> Result<Self> {
+        let studio = require("studio")?;
+
+        // Check if `studio --help` mentions "WordPress Studio". Android Studio does not, WordPress Studio does.
+        let output = ctx.execute(&studio).always().arg("--help").output_checked_utf8()?;
+
+        if output.stdout.contains("WordPress Studio") {
+            debug!("Detected `studio` as WordPress Studio");
+            Ok(Self::WordPressStudio(studio))
+        } else {
+            debug!("Detected `studio` as Android Studio");
+            Ok(Self::AndroidStudio(studio))
+        }
+    }
+}
+
 pub fn run_android_studio(ctx: &ExecutionContext) -> Result<()> {
+    let studio = Studio::get(ctx)
+        .and_then(|x| x.android_studio())
+        .or_else(|_| require_one(["android-studio", "android-studio-beta", "android-studio-canary"]))?;
+
     // We don't use `run_jetbrains_ide` here because that would print "JetBrains Android Studio",
     //  which is incorrect as Android Studio is made by Google. Just "Android Studio" is fine.
-    run_jetbrains_ide_generic::<false>(
-        ctx,
-        require_one([
-            "studio",
-            "android-studio",
-            "android-studio-beta",
-            "android-studio-canary",
-        ])?,
-        "Android Studio",
-    )
+    run_jetbrains_ide_generic::<false>(ctx, studio, "Android Studio")
 }
 
 pub fn run_jetbrains_aqua(ctx: &ExecutionContext) -> Result<()> {
@@ -2820,6 +2854,7 @@ pub fn run_mise(ctx: &ExecutionContext) -> Result<()> {
         .execute(&mise)
         .current_dir(temp_dir.path())
         .args(["self-update"])
+        .arg_if(ctx.config().yes(Step::Mise), "--yes")
         .output_checked_with(|_| Ok(()))?;
     let status_code = output
         .status
