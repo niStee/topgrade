@@ -3,6 +3,7 @@ use color_eyre::eyre::Result;
 use color_eyre::eyre::{OptionExt, bail, eyre};
 #[cfg(unix)]
 use etcetera::BaseStrategy;
+use itertools::Itertools;
 use jetbrains_toolbox_updater::{FindError, find_jetbrains_toolbox, update_jetbrains_toolbox};
 use regex::bytes::Regex;
 use rust_i18n::t;
@@ -192,10 +193,10 @@ pub fn run_sheldon(ctx: &ExecutionContext) -> Result<()> {
     print_separator("Sheldon");
 
     ctx.execute(sheldon)
-        .args(["lock", "--update"])
         .arg_if(ctx.config().sheldon_quiet(), "--quiet")
         .arg_if(ctx.config().sheldon_verbose(), "--verbose")
         .arg_if(ctx.config().yes(Step::Sheldon), "--non-interactive")
+        .args(["lock", "--update"])
         .status_checked()?;
     Ok(())
 }
@@ -793,7 +794,6 @@ fn run_vscode_compatible(variant: VSCodeVariant, ctx: &ExecutionContext) -> Resu
     let version_string = version_string
         .split('.')
         .map(|s| if s == "0" { "0" } else { s.trim_start_matches('0') })
-        .collect::<Vec<_>>()
         .join(".");
 
     let version = Version::parse(&version_string)
@@ -1529,7 +1529,7 @@ pub fn run_composer_update(ctx: &ExecutionContext) -> Result<()> {
         let output: Utf8Output = output.try_into()?;
         print!("{}\n{}", output.stdout, output.stderr);
         if (output.stdout.contains("valet") || output.stderr.contains("valet"))
-            && let Some(valet) = which("valet")
+            && let Some(valet) = which("valet")?
         {
             ctx.execute(valet).arg("install").status_checked()?;
         }
@@ -2682,22 +2682,24 @@ pub fn run_skills(ctx: &ExecutionContext) -> Result<()> {
     }
 
     // Prefer a locally installed `skills` binary over a package runner
-    if let Some(skills) = which("skills") {
+    if let Some(skills) = which("skills")? {
         print_separator("Skills");
         return ctx.execute(skills).args(["update", "--global"]).status_checked();
     }
 
     // Fall back to a package runner; only npx needs `--yes` to auto-confirm the download
-    let (runner, uses_yes_flag) = match ctx.config().skills_package_manager() {
-        SkillsPackageManager::Npx => ("npx", true),
-        SkillsPackageManager::Pnpm => ("pnpx", false),
-        SkillsPackageManager::Bun => ("bunx", false),
+    let (runner, runner_args, uses_yes_flag) = match ctx.config().skills_package_manager() {
+        SkillsPackageManager::Npm => ("npx", &[][..], true),
+        SkillsPackageManager::Pnpm => ("pnpx", &[][..], false),
+        SkillsPackageManager::Bun => ("bunx", &[][..], false),
+        SkillsPackageManager::Yarn => ("yarn", &["dlx"][..], false),
     };
 
     let runner = require(runner)?;
     print_separator("Skills");
     ctx.execute(runner)
         .arg_if(uses_yes_flag && ctx.config().yes(Step::Skills), "--yes")
+        .args(runner_args)
         .args(["skills", "update", "--global"])
         .status_checked()
 }
@@ -2805,10 +2807,8 @@ pub fn run_ollama_pull(ctx: &ExecutionContext) -> Result<()> {
     print_separator("Ollama");
 
     let mut server: Option<ExecutorChild> = None;
-    if let ExecutorOutput::Wet(out) = ctx.execute(&ollama).always().args(["list"]).output()?
-        && String::from_utf8_lossy(&out.stderr).contains("could not connect")
-        && !ctx.run_type().dry()
-    {
+    let out = ctx.execute(&ollama).always().args(["list"]).output()?.unwrap_wet();
+    if String::from_utf8_lossy(&out.stderr).contains("could not connect") && !ctx.run_type().dry() {
         debug!("Ollama server not running, starting temporary server");
         server = Some(ollama_serve(ctx, &ollama)?);
         // wait max 2 seconds for server to start
