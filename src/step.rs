@@ -199,6 +199,7 @@ pub enum Step {
     Yadm,
     Yarn,
     Yazi,
+    Zed,
     Zerobrew,
     Zigup,
     Zvm,
@@ -791,6 +792,11 @@ impl Step {
             }
             Yarn => runner.execute(*self, "yarn", || node::run_yarn_upgrade(ctx))?,
             Yazi => runner.execute(*self, "Yazi packages", || generic::run_yazi(ctx))?,
+            Zed =>
+            {
+                #[cfg(target_os = "linux")]
+                runner.execute(*self, "Zed", || linux::run_zed(ctx))?
+            }
             Zerobrew =>
             {
                 #[cfg(unix)]
@@ -807,7 +813,7 @@ impl Step {
 #[expect(clippy::too_many_lines)]
 pub(crate) fn default_steps() -> Vec<Step> {
     use Step::*;
-    // For now, SelfUpdate isn't included as it's ran before the other non-steps (pre-commands, sudo, etc)
+    // For now, SelfUpdate isn't included as it's run before the other non-steps (pre-commands, sudo, etc)
     vec![
         // Steps that should run first
         // Falconf can install programs we want to immediately detect and update
@@ -821,8 +827,6 @@ pub(crate) fn default_steps() -> Vec<Step> {
         Winget,
         System,
         MicrosoftStore,
-        BrewFormula,
-        BrewCask,
         Zerobrew,
         Macports,
         Xcodes,
@@ -874,7 +878,6 @@ pub(crate) fn default_steps() -> Vec<Step> {
         Rcm,
         Maza,
         Adless,
-        Hyprpm,
         Atuin,
         Atom,
         Fossil,
@@ -995,7 +998,13 @@ pub(crate) fn default_steps() -> Vec<Step> {
         Vagrant,
         HermesAgent,
         AntigravityCli,
+        Zed,
         // Steps that should run last
+        // Runs `sudo -k` at startup, which drops cached sudo credentials for every later step
+        BrewFormula,
+        BrewCask,
+        // Runs `sudo -k` at the end, which drops cached sudo credentials for every later step
+        Hyprpm,
         // Last out of convention
         CustomCommands,
         // Last because it prompts for restart
