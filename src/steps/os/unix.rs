@@ -265,7 +265,7 @@ pub fn run_oh_my_bash(ctx: &ExecutionContext) -> Result<()> {
         )
         .require()?;
 
-    print_separator("oh-my-bash");
+    print_separator("Oh My Bash");
 
     let mut update_script = oh_my_bash.clone();
     update_script.push_str("/tools/upgrade.sh");
@@ -282,7 +282,7 @@ pub fn run_oh_my_fish(ctx: &ExecutionContext) -> Result<()> {
     let fish = require("fish")?;
     HOME_DIR.join(".local/share/omf/pkg/omf/functions/omf.fish").require()?;
 
-    print_separator("oh-my-fish");
+    print_separator("Oh My Fish");
 
     ctx.execute(fish).args(["-c", "omf update"]).status_checked()
 }
@@ -356,7 +356,7 @@ pub fn upgrade_gnome_extensions(ctx: &ExecutionContext) -> Result<()> {
 
     debug!("Checking for GNOME extensions: {}", output);
     if !output.stdout.contains("org.gnome.Shell.Extensions") {
-        return Err(SkipStep(t!("GNOME shell extensions are unregistered in DBus").to_string()).into());
+        return Err(SkipStep(t!("GNOME Shell extensions are unregistered in DBus").to_string()).into());
     }
 
     print_separator(t!("GNOME Shell extensions"));
@@ -496,7 +496,7 @@ pub fn run_brew_cask(ctx: &ExecutionContext, variant: BrewVariant) -> Result<()>
 pub fn run_zerobrew(ctx: &ExecutionContext) -> Result<()> {
     let zb = require("zb")?;
 
-    print_separator("Zerobrew");
+    print_separator("zerobrew");
 
     ctx.execute(&zb).arg("update").status_checked()?;
     ctx.execute(&zb).arg("upgrade").status_checked()?;
@@ -672,7 +672,7 @@ pub fn run_nix(ctx: &ExecutionContext) -> Result<()> {
     {
         if require("darwin-rebuild").is_ok() {
             return Err(
-                SkipStep(t!("Nix-darwin on macOS must be upgraded via darwin-rebuild switch").to_string()).into(),
+                SkipStep(t!("nix-darwin on macOS must be upgraded via darwin-rebuild switch").to_string()).into(),
             );
         }
     }
@@ -807,7 +807,7 @@ pub fn run_nix_self_upgrade(ctx: &ExecutionContext) -> Result<()> {
 ///
 /// See: <https://github.com/NixOS/nix/issues/5473>
 fn nix_profile_dir(nix: &Path) -> Result<Option<PathBuf>> {
-    // NOTE: `nix` uses the location of the `nix-env` binary for this but we're using the `nix`
+    // NOTE: `nix` uses the location of the `nix-env` binary for this, but we're using the `nix`
     // binary; should be the same.
     let nix_bin_dir = nix.parent();
     if nix_bin_dir.and_then(|p| p.file_name()) != Some(OsStr::new("bin")) {
@@ -1046,12 +1046,14 @@ pub fn run_pyenv(ctx: &ExecutionContext) -> Result<()> {
 pub fn run_sdkman(ctx: &ExecutionContext) -> Result<()> {
     let bash = require("bash")?;
 
-    let sdkman_init_path = var("SDKMAN_DIR")
+    // The SDKMAN installer sources sdkman-init.sh from the user's .bashrc, which
+    // only interactive bash reads; the commands below run `-i`, so this file
+    // only gates the step.
+    var("SDKMAN_DIR")
         .map_or_else(|_| HOME_DIR.join(".sdkman"), PathBuf::from)
         .join("bin")
         .join("sdkman-init.sh")
-        .require()
-        .map(|p| format!("{}", p.display()))?;
+        .require()?;
 
     print_separator("SDKMAN!");
 
@@ -1068,27 +1070,22 @@ pub fn run_sdkman(ctx: &ExecutionContext) -> Result<()> {
         .unwrap_or("false");
 
     if selfupdate_enabled == "true" {
-        let cmd_selfupdate = format!("source {} && sdk selfupdate", sdkman_init_path);
         ctx.execute(&bash)
-            .args(["-c", cmd_selfupdate.as_str()])
+            .args(["-i", "-c", "sdk selfupdate"])
             .status_checked()?;
     }
 
-    let cmd_update = format!("source {} && sdk update", sdkman_init_path);
-    ctx.execute(&bash).args(["-c", cmd_update.as_str()]).status_checked()?;
+    ctx.execute(&bash).args(["-i", "-c", "sdk update"]).status_checked()?;
 
-    let cmd_upgrade = format!("source {} && sdk upgrade", sdkman_init_path);
-    ctx.execute(&bash).args(["-c", cmd_upgrade.as_str()]).status_checked()?;
+    ctx.execute(&bash).args(["-i", "-c", "sdk upgrade"]).status_checked()?;
 
     if ctx.config().cleanup() {
-        let cmd_flush_archives = format!("source {} && sdk flush archives", sdkman_init_path);
         ctx.execute(&bash)
-            .args(["-c", cmd_flush_archives.as_str()])
+            .args(["-i", "-c", "sdk flush archives"])
             .status_checked()?;
 
-        let cmd_flush_temp = format!("source {} && sdk flush temp", sdkman_init_path);
         ctx.execute(&bash)
-            .args(["-c", cmd_flush_temp.as_str()])
+            .args(["-i", "-c", "sdk flush temp"])
             .status_checked()?;
     }
 
@@ -1139,7 +1136,7 @@ pub fn run_hyprpm(ctx: &ExecutionContext) -> Result<()> {
 pub fn run_atuin(ctx: &ExecutionContext) -> Result<()> {
     let atuin = require("atuin-update")?;
 
-    print_separator("atuin");
+    print_separator("Atuin");
 
     ctx.execute(atuin).status_checked()
 }
