@@ -532,6 +532,12 @@ pub struct Pkgfile {
 
 #[derive(Deserialize, Default, Debug, Merge)]
 #[serde(deny_unknown_fields)]
+pub struct Uv {
+    cache_force: Option<bool>,
+}
+
+#[derive(Deserialize, Default, Debug, Merge)]
+#[serde(deny_unknown_fields)]
 /// Configuration file
 pub struct ConfigFile {
     #[merge(strategy = merge2::option::recursive)]
@@ -647,6 +653,9 @@ pub struct ConfigFile {
 
     #[merge(strategy = merge2::option::recursive)]
     viteplus: Option<VitePlus>,
+
+    #[merge(strategy = merge2::option::recursive)]
+    uv: Option<Uv>,
 }
 
 fn config_directory() -> PathBuf {
@@ -1455,7 +1464,7 @@ impl Config {
             .unwrap_or(false)
     }
 
-    // Should wsl --update should use the --pre-release flag
+    // Should wsl --update use the --pre-release flag
     pub fn wsl_update_pre_release(&self) -> bool {
         self.config_file
             .windows
@@ -1785,7 +1794,7 @@ impl Config {
             .unwrap_or(false)
     }
 
-    /// Use zypper dist-upgrade (same as distro-sync on RH) instead of update (default: false on SLE/Leap, ignored on Tumbleweed (dup is always ran))
+    /// Use zypper dist-upgrade (same as distro-sync on RH) instead of update (default: false on SLE/Leap, ignored on Tumbleweed (dup is always run))
     pub fn suse_dup(&self) -> bool {
         self.config_file
             .linux
@@ -1794,7 +1803,7 @@ impl Config {
             .unwrap_or(false)
     }
 
-    /// Use rpm-ostree in *when rpm-ostree is detected* (default: true)
+    /// Use rpm-ostree *when rpm-ostree is detected* (default: false)
     pub fn rpm_ostree(&self) -> bool {
         self.config_file
             .linux
@@ -1803,7 +1812,7 @@ impl Config {
             .unwrap_or(false)
     }
 
-    /// Use bootc in *when bootc is detected* (default: false)
+    /// Use bootc *when bootc is detected* (default: false)
     pub fn bootc(&self) -> bool {
         self.config_file
             .linux
@@ -2283,6 +2292,14 @@ impl Config {
             .pkgfile
             .as_ref()
             .and_then(|pkgfile| pkgfile.enable)
+            .unwrap_or(false)
+    }
+
+    pub fn uv_cache_force(&self) -> bool {
+        self.config_file
+            .uv
+            .as_ref()
+            .and_then(|uv| uv.cache_force)
             .unwrap_or(false)
     }
 }
